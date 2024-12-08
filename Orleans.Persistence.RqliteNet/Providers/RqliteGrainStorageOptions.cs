@@ -4,7 +4,11 @@ namespace Orleans.Persistence.RqliteNet.Providers;
 
 public class RqliteGrainStorageOptions : IStorageProviderSerializerOptions
 {
-    public required string Uri { get; set; }
+    public required Uri Uri { get; set; }
+
+    public string AuthInfo { get; set; } = string.Empty;
+
+    public TimeSpan? PooledConnectionLifetime { get; set; }
 
     public required IGrainStorageSerializer GrainStorageSerializer { get; set; }
 }

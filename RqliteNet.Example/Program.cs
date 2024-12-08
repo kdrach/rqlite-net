@@ -1,6 +1,6 @@
 ﻿using RqliteNet;
 
-using IRqliteNetClient r = new RqliteNetClient("http://127.0.0.1:4001");
+using var r = new RqliteNetClient(new Uri("http://127.0.0.1:4001"));
 
 await r.Execute("DROP TABLE IF EXISTS TEST");
 await r.Execute("CREATE TABLE IF NOT EXISTS TEST (Id INT, Val TEXT)");

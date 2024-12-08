@@ -3,11 +3,9 @@ using RqliteNet.Orleans.Example.Interfaces;
 
 namespace RqliteNet.Orleans.Example.Grains;
 
-public class HelloGrain : Grain, IHello
+public class HelloGrain([PersistentState("state", "rqlite")] IPersistentState<HelloState> state) : Grain, IHello
 {
-    private readonly IPersistentState<HelloState> _state;
-
-    public HelloGrain([PersistentState("state")] IPersistentState<HelloState> state) => _state = state;
+    private readonly IPersistentState<HelloState> _state = state;
 
     async Task<string> IHello.SayHello(string greeting)
     {

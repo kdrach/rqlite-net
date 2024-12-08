@@ -1,15 +1,61 @@
-﻿using System.Text.Json;
+﻿using System.Text;
+using System.Text.Json;
 
 namespace RqliteNet;
 
 public class RqliteNetClient : IRqliteNetClient
 {
     readonly HttpClient _http;
-    static readonly JsonSerializerOptions _options = new() { PropertyNameCaseInsensitive = true };
+    readonly JsonSerializerOptions _options = new() { PropertyNameCaseInsensitive = true };
 
-    public RqliteNetClient(string uri, HttpClient? client = null)
+    /// <summary>
+    /// Create RqliteNetClient without auth, with PooledConnectionLifetime = TimeSpan.FromMinutes(15)
+    /// </summary>  
+    /// <param name="uri">Rqlite server address</param>
+    public RqliteNetClient(Uri uri) : this(uri, null, string.Empty)
     {
-        _http = client ?? new HttpClient() { BaseAddress = new Uri(uri) };
+    }
+
+    /// <summary>
+    /// Create RqliteNetClient without auth
+    /// </summary>
+    /// <param name="uri">Rqlite server address</param>
+    /// <param name="pooledConnectionLifetime">How long a connection can be in the pool to be considered reusable</param>    
+    public RqliteNetClient(Uri uri, TimeSpan pooledConnectionLifetime) : this(uri, pooledConnectionLifetime, string.Empty)
+    {
+    }
+
+    /// <summary>
+    /// 
+    /// </summary>
+    /// <param name="uri">Rqlite server address</param>    
+    /// <param name="authInfo">Basic Auth to use when calling Rqlite, ex. user:password</param>
+    public RqliteNetClient(Uri uri, string authInfo) : this(uri, null, authInfo)
+    {
+    }
+
+    /// <summary>
+    /// Create RqliteNetClient
+    /// </summary>
+    /// <param name="uri">Rqlite server address</param>
+    /// <param name="pooledConnectionLifetime">How long a connection can be in the pool to be considered reusable</param>
+    /// <param name="authInfo">Basic Auth to use when calling Rqlite, ex. "user:password". Pass empty not to use</param>
+    public RqliteNetClient(Uri uri, TimeSpan? pooledConnectionLifetime, string authInfo)
+    {
+        var handler = new SocketsHttpHandler
+        {
+            PooledConnectionLifetime = pooledConnectionLifetime ?? TimeSpan.FromMinutes(15)
+        };
+        _http = new HttpClient(handler)
+        {
+            BaseAddress = uri
+        };
+
+        if (!string.IsNullOrWhiteSpace(authInfo))
+        {
+            var base64EncodedAuthenticationString = Convert.ToBase64String(Encoding.UTF8.GetBytes(authInfo));
+            _http.DefaultRequestHeaders.Add("Authorization", $"Basic {base64EncodedAuthenticationString}");
+        }
     }
 
     public async Task<ExecuteResponse> Execute(string command, params object[] parameters)
@@ -18,7 +64,7 @@ public class RqliteNetClient : IRqliteNetClient
         var response = await GetResponse("/db/execute", json);
         var obj = JsonSerializer.Deserialize<ExecuteResponse>(response, _options)!;
 
-        if (obj.Results.Any() && !string.IsNullOrEmpty(obj.Results.First().Error))
+        if (obj.Results.Count != 0 && !string.IsNullOrEmpty(obj.Results.First().Error))
         {
             throw new Exception(obj.Results.First().Error);
         }
@@ -34,7 +80,7 @@ public class RqliteNetClient : IRqliteNetClient
         var obj = JsonSerializer.Deserialize<QueryResponse>(response, _options);
         ArgumentNullException.ThrowIfNull(obj);
 
-        if (obj.Results.Any() && !string.IsNullOrEmpty(obj.Results.First().Error))
+        if (obj.Results.Count != 0 && !string.IsNullOrEmpty(obj.Results.First().Error))
         {
             throw new Exception(obj.Results.First().Error);
         }
@@ -99,5 +145,9 @@ public class RqliteNetClient : IRqliteNetClient
         };
     }
 
-    public void Dispose() => _http.Dispose();
+    public void Dispose()
+    {
+        GC.SuppressFinalize(this);
+        _http.Dispose();
+    }
 }

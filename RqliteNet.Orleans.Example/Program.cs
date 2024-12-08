@@ -8,11 +8,12 @@ IHostBuilder builder = Host.CreateDefaultBuilder(args)
     {
         silo.UseLocalhostClustering();
 
-        silo.AddRqliteGrainStorageAsDefault(opt =>
+        silo.AddRqliteGrainStorage("rqlite", opt =>
         {
-            opt.Uri = "http://127.0.0.1:4001";
+            opt.Uri = new Uri("http://127.0.0.1:4001");
+            opt.AuthInfo = string.Empty;
+            opt.PooledConnectionLifetime = TimeSpan.FromHours(1);
         });
-
     })
     .UseConsoleLifetime();
 

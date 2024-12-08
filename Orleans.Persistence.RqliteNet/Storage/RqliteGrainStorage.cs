@@ -12,14 +12,14 @@ public class RqliteGrainStorage : IGrainStorage, ILifecycleParticipant<ISiloLife
     private readonly string _storageName;
     private readonly RqliteGrainStorageOptions _options;
     private readonly ClusterOptions _clusterOptions;
-    private readonly IRqliteNetClient _client;
+    private readonly RqliteNetClient _client;
 
     public RqliteGrainStorage(string storageName, RqliteGrainStorageOptions options, IOptions<ClusterOptions> clusterOptions)
     {
         _storageName = storageName;
         _options = options;
         _clusterOptions = clusterOptions.Value;
-        _client = new RqliteNetClient(_options.Uri);
+        _client = new RqliteNetClient(_options.Uri, _options.PooledConnectionLifetime, _options.AuthInfo);
     }
 
     private string GetKeyString(string stateName, GrainId grainId) => $"{_clusterOptions.ServiceId}.{grainId}.{stateName}";
@@ -44,7 +44,7 @@ public class RqliteGrainStorage : IGrainStorage, ILifecycleParticipant<ISiloLife
     {
         var id = GetKeyString(stateName, grainId);
         var result = await GetCustomState(id);
-        if (result.Any())
+        if (result.Count != 0)
         {
             if (result.Single().ETag != grainState.ETag)
             {
@@ -53,7 +53,7 @@ public class RqliteGrainStorage : IGrainStorage, ILifecycleParticipant<ISiloLife
             await _client.Execute($"DELETE FROM GrainsState WHERE GrainId=?", id);
 
             grainState.ETag = null;
-            grainState.State = (T) Activator.CreateInstance(typeof(T))!;
+            grainState.State = Activator.CreateInstance<T>();
             grainState.RecordExists = false;
         }
     }
@@ -62,9 +62,9 @@ public class RqliteGrainStorage : IGrainStorage, ILifecycleParticipant<ISiloLife
     {
         var id = GetKeyString(stateName, grainId);
         var result = await GetCustomState(id);
-        if (!result.Any())
+        if (result.Count == 0)
         {
-            grainState.State = (T) Activator.CreateInstance(typeof(T))!;
+            grainState.State = Activator.CreateInstance<T>();
             return;
         }
 
@@ -83,7 +83,7 @@ public class RqliteGrainStorage : IGrainStorage, ILifecycleParticipant<ISiloLife
 
         var id = GetKeyString(stateName, grainId);
         var result = await GetCustomState(id);
-        if (result.Any())
+        if (result.Count != 0)
         {
             if (result.Single().ETag != grainState.ETag)
             {

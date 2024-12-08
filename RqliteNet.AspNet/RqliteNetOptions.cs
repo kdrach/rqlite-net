@@ -2,5 +2,9 @@
 
 public class RqliteNetOptions
 {
-    public string? Uri { get; set; }
+    public Uri? Uri { get; set; }
+
+    public string AuthInfo { get; set; } = string.Empty;
+
+    public TimeSpan? PooledConnectionLifetime { get; set; }
 }
